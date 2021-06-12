@@ -1,10 +1,16 @@
 import numpy as np
 
+def get_cont_indices(X):
+    max_ord=14
+    indices = np.zeros(X.shape[1]).astype(bool)
+    for i, col in enumerate(X.T):
+        col_nonan = col[~np.isnan(col)]
+        col_unique = np.unique(col_nonan)
+        if len(col_unique) > max_ord:
+            indices[i] = True
+    return indices
+
 def cont_to_binary(x):
-    """
-    convert entries of x to binary using a random threshold function
-    使用随机阈值函数将x的条目转换为二进制
-    """
     # make the cutoff a random sample and ensure at least 10% are in each class
     while True:
         cutoff = np.random.choice(x)    #从x中挑选的一个随机数返回，作为阈值
@@ -13,10 +19,6 @@ def cont_to_binary(x):
     return (x > cutoff).astype(int)#astype函数改变数组中的元素类型
 
 def cont_to_ord(x, k):
-    """
-    convert entries of x to an ordinal with k levels using even space thresholds
-    使用均匀空间阈值将x的条目转换为具有k个级别的序数
-    """
     # make the cutoffs based on the quantiles
     #if k == 2:
         #return cont_to_binary(x)
@@ -30,10 +32,6 @@ def cont_to_ord(x, k):
 
 
 def get_mae(x_imp, x_true, x_obs=None):
-    """
-    gets Mean Absolute Error (MAE) between x_imp and x_true
-    当预测值与真实值完全吻合时等于0，即完美模型；误差越大，该值越大
-    """
     if x_obs is not None:
         loc = np.isnan(x_obs)
         imp = x_imp[loc]
@@ -44,10 +42,6 @@ def get_mae(x_imp, x_true, x_obs=None):
         
 
 def get_smae(x_imp, x_true, x_obs, Med=None, per_type=False, cont_loc=None, bin_loc=None, ord_loc=None):
-    """
-    gets Scaled Mean Absolute Error (SMAE) between x_imp and x_true
-    平均绝对比例误差
-    """
     error = np.zeros((x_obs.shape[1],2))
     for i, col in enumerate(x_obs.T):
         test = np.bitwise_and(~np.isnan(x_true[:,i]), np.isnan(col))
@@ -111,10 +105,6 @@ def get_smae_per_type_online(x_imp, x_true, x_obs, Med):
 
 
 def get_rmse(x_imp, x_true, relative=False):
-    """
-    gets Root Mean Squared Error (RMSE) or Normalized Root Mean Squared Error (NRMSE) between x_imp and x_true
-    均方根误差
-    """
     diff = x_imp - x_true
     mse = np.mean(diff**2.0, axis=0)
     rmse = np.sqrt(mse)
@@ -126,20 +116,10 @@ def get_relative_rmse(x_imp, x_true, x_obs):
     val = x_true[loc]
     return get_scaled_error(imp, val)
 
-
-
-
 def get_scaled_error(sigma_imp, sigma):
-    """
-    gets a scaled error between matrices |simga - sigma_imp|_F^2 / |sigma|_F^2
-    """
     return np.linalg.norm(sigma - sigma_imp) / np.linalg.norm(sigma)
 
-
 def mask_types(X, mask_num, seed):
-    """
-    Masks mask_num entries of the continuous, ordinal, and binary columns of X
-    """
     X_masked = np.copy(X)
     mask_indices = []
     num_rows = X_masked.shape[0]
@@ -151,12 +131,9 @@ def mask_types(X, mask_num, seed):
             for idx in rand_idx:
                 X_masked[i,idx+2*j]=np.nan
                 mask_indices.append((i, idx+2*j))
-    return X_masked, mask_indices
+    return X_masked
 
 def mask(X, mask_fraction, seed=0, verbose=False):
-    """
-    Masks mask_fraction entries of X, raising a value error if an entire row is masked
-    """
     complete = False
     count = 0
     X_masked = np.copy(X) 
@@ -181,9 +158,6 @@ def mask(X, mask_fraction, seed=0, verbose=False):
     return X_masked, mask_indices, seed
 
 def mask_per_row(X, seed=0, size=1):
-    """
-    Maskes one element uniformly at random from each row of X
-    """
     X_masked = np.copy(X)
     n,p = X.shape
     for i in range(n):
@@ -268,4 +242,47 @@ def grassman_dist(A,B):
     theta = np.arccos(d)
     return np.linalg.norm(theta), np.linalg.norm(d1-d2)
 
-
+def get_hyperparameter(dataset):
+    if dataset == "australian":
+        contribute_error_rate = 0.005
+        window_size_denominator = 4
+        batch_size_denominator = 8
+        decay_coef_change = 0
+        decay_choice = 3
+        shuffle = False
+    elif dataset == "ionosphere":
+        contribute_error_rate = 0
+        window_size_denominator = 4
+        batch_size_denominator = 8
+        decay_coef_change = 0
+        decay_choice = 4
+        shuffle = False
+    elif dataset == "german":
+        contribute_error_rate = 0.005
+        window_size_denominator = 2
+        batch_size_denominator = 8
+        decay_coef_change = 0
+        decay_choice = 4
+        shuffle = False
+    elif dataset == "diabetes":
+        contribute_error_rate = 0.02
+        window_size_denominator = 2
+        batch_size_denominator = 8
+        decay_coef_change = 0
+        decay_choice = 0
+        shuffle = True
+    elif dataset == "wdbc":
+        contribute_error_rate = 0
+        window_size_denominator = 2
+        batch_size_denominator = 8
+        decay_coef_change = 0
+        decay_choice = 4
+        shuffle = False
+    elif dataset == "credit":
+        contribute_error_rate = 0.02
+        window_size_denominator = 2
+        batch_size_denominator = 8
+        decay_coef_change = 0
+        decay_choice = 3
+        shuffle = True
+    return contribute_error_rate, window_size_denominator, batch_size_denominator, decay_coef_change,decay_choice,shuffle

@@ -86,8 +86,7 @@ class OnlineExpectationMaximization(ExpectationMaximization):
             Z_imp (matrix): estimates of latent values in X_batch
         """
         Z_ord_lower, Z_ord_upper = self.transform_function.partial_evaluate_ord_latent(X_batch) 
-        #print("ordinal lower size: "+str(Z_ord_lower.shape))
-        #print("all missing: "+str(np.all(np.isnan(Z_ord_lower))))
+
         Z_ord = self._init_Z_ord(Z_ord_lower, Z_ord_upper, seed)#序数值转成潜在变量
         Z_cont = self.transform_function.partial_evaluate_cont_latent(X_batch) #连续值转成潜在变量，缺失部分为nan
         # Latent variable matrix with columns sorted as ordinal, continuous
@@ -120,8 +119,6 @@ class OnlineExpectationMaximization(ExpectationMaximization):
         #print(sigma)
         if update:#update为true一定比例参照原始sigma更新当前sigma
             self.sigma = sigma*decay_coef + (1 - decay_coef)*prev_sigma
-            print("sigma")
-            print(self.sigma)
             prev_sigma = self.sigma
             self.iteration += 1
         if sigma_out:#是否输出sigma

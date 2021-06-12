@@ -98,7 +98,12 @@ class FTRL_ADP:
     
     def __sigmoid(self, x):
         #print("ftrl里的sigmoid输入",x)
-        return 1 / (1 + np.exp(-x)) 
+        if x >= 0:  # 对sigmoid函数的优化，避免了出现极大的数据溢出
+            return 1.0 / (1 + np.exp(-x))
+        else:
+            return np.exp(x) / (1 + np.exp(x))
+
+        return 1 / (1 + np.exp(-x))
     
     def __loss(self,y,x):
         #print("输入x："+str(x))
