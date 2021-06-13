@@ -1,4 +1,61 @@
 import numpy as np
+import pandas as pd
+import math
+import os
+
+def get_tra_zero_datastream(dataset):
+    X = pd.read_csv("../dataset/MaskData/" + dataset + "/X_process.txt", sep=" ", header=None)
+    X = X.values
+    n = X.shape[0]
+    feat = X.shape[1]
+    perm = np.arange(n)
+    np.random.seed(1)
+    np.random.shuffle(perm)
+    perm = np.array(perm)
+    X = X[perm]
+    X = X.tolist()
+    star_row = 0
+    end_column = 0
+    X_trapezoid = []
+    X_masked = []
+    X_zeros = []
+    for i in range(5):
+        end_row = star_row + math.ceil(n / 5)
+        if end_row > n: end_row = n
+        end_column = end_column + math.ceil(feat / 5)
+        if end_column > feat: end_column = feat
+        for j in range(star_row, end_row):
+            row_1 = X[j][0:end_column]
+            row_2 = row_1 + [np.nan] * (feat - end_column)
+            row_3 = row_1 + [0] * (feat - end_column)
+
+            X_trapezoid.append(row_1)
+            X_masked.append(row_2)
+            X_zeros.append(row_3)
+        star_row = end_row
+
+    path = "../dataset/MaskData/" + dataset
+    if not os.path.exists(path):
+        os.makedirs(path)
+    np.savetxt(path + "/X.txt", np.array(X_masked))
+    np.savetxt(path + "/X_trapezoid_zeros.txt", np.array(X_zeros))
+    file = open(path + "/X_trapezoid.txt", 'w')
+    for fp in X_trapezoid:
+        file.write(str(fp))
+        file.write('\n')
+    file.close()
+
+def chack_Nan(X_masked,n):
+    for i in range(n):
+        X_masked[i] = X_masked[i].strip()
+        X_masked[i] = X_masked[i].strip("[]")
+        X_masked[i] = X_masked[i].split(",")
+        X_masked[i] = list(map(float, X_masked[i]))
+        narry = np.array(X_masked[i])
+        where_are_nan = np.isnan(narry)
+        narry[where_are_nan] = 0
+        X_masked[i] = narry.tolist()
+    return X_masked
 
 def get_cont_indices(X):
     max_ord=14
@@ -13,23 +70,19 @@ def get_cont_indices(X):
 def cont_to_binary(x):
     # make the cutoff a random sample and ensure at least 10% are in each class
     while True:
-        cutoff = np.random.choice(x)    #从x中挑选的一个随机数返回，作为阈值
+        cutoff = np.random.choice(x)
         if len(x[x < cutoff]) > 0.1*len(x) and len(x[x < cutoff]) < 0.9*len(x):
             break
-    return (x > cutoff).astype(int)#astype函数改变数组中的元素类型
+    return (x > cutoff).astype(int)
 
 def cont_to_ord(x, k):
     # make the cutoffs based on the quantiles
-    #if k == 2:
-        #return cont_to_binary(x)
     std_dev = np.std(x)
     cuttoffs = np.linspace(np.min(x), np.max(x), k+1)[1:]
     ords = np.zeros(len(x))
     for cuttoff in cuttoffs:
         ords += (x > cuttoff).astype(int)
     return ords.astype(int)
-
-
 
 def get_mae(x_imp, x_true, x_obs=None):
     if x_obs is not None:
@@ -39,7 +92,6 @@ def get_mae(x_imp, x_true, x_obs=None):
         return np.mean(np.abs(imp - val))
     else:
         return np.mean(np.abs(x_imp - x_true))
-        
 
 def get_smae(x_imp, x_true, x_obs, Med=None, per_type=False, cont_loc=None, bin_loc=None, ord_loc=None):
     error = np.zeros((x_obs.shape[1],2))
@@ -91,18 +143,6 @@ def get_smae_per_type(x_imp, x_true, x_obs, cont_loc=None, bin_loc=None, ord_loc
         med_diff = np.abs(med - x_true[:,loc[j]][missing])
         scaled_diffs[j] = np.sum(diff)/np.sum(med_diff)
     return scaled_diffs
-    
-def get_smae_per_type_online(x_imp, x_true, x_obs, Med):
-    for i, col in enumerate(x_obs.T):
-        missing = np.isnan(col)
-        x_true_col = x_true[np.isnan(col),i]
-        x_imp_col = x_imp[np.isnan(col),i]
-        median = Med[i]
-        diff = np.abs(x_imp_col - x_true_col)
-        med_diff = np.abs(median - x_true_col)
-        scaled_diffs[i] = np.sum(diff)/np.sum(med_diff)
-    return scaled_diffs
-
 
 def get_rmse(x_imp, x_true, relative=False):
     diff = x_imp - x_true
@@ -167,15 +207,6 @@ def mask_per_row(X, seed=0, size=1):
     return X_masked
 
 def _project_to_correlation(covariance):
-        """
-        Projects a covariance to a correlation matrix, normalizing it's diagonal entries
-
-        Args:
-            covariance (matrix): a covariance matrix
-
-        Returns:
-            correlation (matrix): the covariance matrix projected to a correlation matrix
-        """
         D = np.diagonal(covariance)
         D_neg_half = np.diag(1.0/np.sqrt(D))
         return np.matmul(np.matmul(D_neg_half, covariance), D_neg_half)
@@ -183,40 +214,10 @@ def _project_to_correlation(covariance):
 def generate_sigma(seed):
     np.random.seed(seed)
     W = np.random.normal(size=(18, 18))
-    covariance = np.matmul(W, W.T)#矩阵相乘
-    D = np.diagonal(covariance)#D为covariance矩阵的对角线元素
-    D_neg_half = np.diag(1.0/np.sqrt(D))#将D中每个元素开根号并取逆，以此作为对角线元素生成对角线矩阵
+    covariance = np.matmul(W, W.T)
+    D = np.diagonal(covariance)
+    D_neg_half = np.diag(1.0/np.sqrt(D))
     return np.matmul(np.matmul(D_neg_half, covariance), D_neg_half)
-
-def generate_LRGC(rank, sigma, n=500, p_seq=(100,100,100), ord_num=5, cont_type = 'LR', seed=1):
-    cont_indices = None
-    bin_indices = None
-    ord_indices = None
-    if p_seq[0] > 0:
-        cont_indices = range(p_seq[0])
-    if p_seq[1] > 0:
-        ord_indices = range(p_seq[0],p_seq[0] + p_seq[1])
-    if p_seq[2] > 0:
-        bin_indices = range(p_seq[0] + p_seq[1], p_seq[0] + p_seq[1] + p_seq[2])
-    p = np.sum(p_seq)
-    np.random.seed(seed)
-    W = np.random.normal(size=(p,rank))
-    # TODO: check everything of this form with APPLY
-    for i in range(W.shape[0]):
-        W[i,:] = W[i,:]/np.sqrt(np.sum(np.square(W[i,:]))) * np.sqrt(1 - sigma)
-    Z = np.dot(np.random.normal(size=(n,rank)), W.T) + np.random.normal(size=(n,p), scale=np.sqrt(sigma))
-    X_true = Z
-    if cont_indices is not None:
-        if cont_type != 'LR':
-            X_true[:,cont_indices] = X_true[:,cont_indices]**3
-    if bin_indices is not None:
-        for bin_index in bin_indices:
-            X_true[:,bin_index] = continuous2ordinal(Z[:,bin_index], k=2)
-    if ord_indices is not None:
-        for ord_index in ord_indices:
-            X_true[:,ord_index] = continuous2ordinal(Z[:,ord_index], k=ord_num)
-    return X_true, W
-
 
 def continuous2ordinal(x, k = 2, cutoff = None):
     q = np.quantile(x, (0.05,0.95))
@@ -242,47 +243,29 @@ def grassman_dist(A,B):
     theta = np.arccos(d)
     return np.linalg.norm(theta), np.linalg.norm(d1-d2)
 
-def get_hyperparameter(dataset):
-    if dataset == "australian":
-        contribute_error_rate = 0.005
-        window_size_denominator = 4
-        batch_size_denominator = 8
-        decay_coef_change = 0
-        decay_choice = 3
-        shuffle = False
-    elif dataset == "ionosphere":
-        contribute_error_rate = 0
-        window_size_denominator = 4
-        batch_size_denominator = 8
-        decay_coef_change = 0
-        decay_choice = 4
-        shuffle = False
-    elif dataset == "german":
-        contribute_error_rate = 0.005
-        window_size_denominator = 2
-        batch_size_denominator = 8
-        decay_coef_change = 0
-        decay_choice = 4
-        shuffle = False
-    elif dataset == "diabetes":
-        contribute_error_rate = 0.02
-        window_size_denominator = 2
-        batch_size_denominator = 8
-        decay_coef_change = 0
-        decay_choice = 0
-        shuffle = True
-    elif dataset == "wdbc":
-        contribute_error_rate = 0
-        window_size_denominator = 2
-        batch_size_denominator = 8
-        decay_coef_change = 0
-        decay_choice = 4
-        shuffle = False
-    elif dataset == "credit":
-        contribute_error_rate = 0.02
-        window_size_denominator = 2
-        batch_size_denominator = 8
-        decay_coef_change = 0
-        decay_choice = 3
-        shuffle = True
+def get_tra_hyperparameter(dataset):
+    decay_choices = {"ionosphere": 4, "wbc": 1, "wdbc": 3, "german": 2, "diabetes": 2,"credit":4,"australian":4}
+    contribute_error_rates = {"ionosphere": 0.01, "wbc": 0.005, "wdbc": 0, "german": 0.005, "diabetes": 0,"credit":0.01,"australian":0.02}
+    window_size_denominators={"ionosphere": 2, "wbc": 2, "wdbc": 2, "german": 8, "diabetes": 2,"australian":2,"credit":2}
+    shuffles={"ionosphere": False, "wbc": 2, "wdbc": True, "german": False, "diabetes": True,"australian":False,"credit":True}
+    batch_size_denominator=8
+    decay_coef_change=0
+    contribute_error_rate=contribute_error_rates[dataset]
+    window_size_denominator=window_size_denominators[dataset]
+    shuffle=shuffles[dataset]
+    decay_choice=decay_choices[dataset]
+    return contribute_error_rate, window_size_denominator, batch_size_denominator, decay_coef_change,decay_choice,shuffle
+
+def get_cap_hyperparameter(dataset):
+    decay_choices = {"ionosphere": 4, "wbc": 2, "wdbc": 0, "german": 3, "diabetes": 2,"credit":4,"australian":4}
+    contribute_error_rates = {"ionosphere": 0.02, "wbc": 0.02, "wdbc": 0.02, "german": 0.005, "diabetes": 0.05,"credit":0.01,"australian":0.01}
+    window_size_denominators={"ionosphere": 2, "wbc": 2, "wdbc": 2, "german": 2, "diabetes": 2,"australian":2,"credit":2}
+    batch_size_denominators = {"ionosphere": 20, "wbc": 8, "wdbc": 8, "german": 8, "diabetes": 8,"credit": 8, "australian": 10}
+    shuffles={"ionosphere": False, "wbc": 2, "wdbc": True, "german": False, "diabetes": True,"australian":False,"credit":True}
+    batch_size_denominator=batch_size_denominators[dataset]
+    decay_coef_change=0
+    contribute_error_rate=contribute_error_rates[dataset]
+    window_size_denominator=window_size_denominators[dataset]
+    shuffle=shuffles[dataset]
+    decay_choice=decay_choices[dataset]
     return contribute_error_rate, window_size_denominator, batch_size_denominator, decay_coef_change,decay_choice,shuffle

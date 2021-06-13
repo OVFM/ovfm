@@ -1,6 +1,7 @@
 import numpy as np
 from statsmodels.distributions.empirical_distribution import ECDF
 from scipy.stats import norm
+
 class TransformFunction():
     def __init__(self, X, cont_indices, ord_indices):
         self.X = X
@@ -11,7 +12,6 @@ class TransformFunction():
         """
         Return the latent variables corresponding to the continuous entries of 
         self.X. Estimates the CDF columnwise with the empyrical CDF
-        根据连续数据的变量分布返回潜在变量的值
         """
         X_cont = self.X[:,self.cont_indices]
         Z_cont = np.empty(X_cont.shape)
@@ -20,7 +20,7 @@ class TransformFunction():
             missing = np.isnan(x_col)
             x_col_noNan = x_col[~missing]
             ecdf = ECDF(x_col_noNan)
-            Z_cont[:,i] = norm(0,0.25).ppf((n / (n + 1.0)) * ecdf(x_col))#!!!!!!!!!!!!!!!!!!!
+            Z_cont[:,i] = norm(0,0.25).ppf((n / (n + 1.0)) * ecdf(x_col))
             # re-add the nan values
             Z_cont[missing,i] = np.nan
         return Z_cont
@@ -29,7 +29,6 @@ class TransformFunction():
         """
         Return the lower and upper ranges of the latent variables corresponding 
         to the ordinal entries of X. Estimates the CDF columnwise with the empyrical CDF
-        从已有的序数观测矩阵中利用某一列的现有的值获得经验累积分布函数逆向推出已有数据的
         """
         X_ord = self.X[:,self.ord_indices]
         Z_ord_lower = np.empty(X_ord.shape)
@@ -37,11 +36,11 @@ class TransformFunction():
         for i, x_col in enumerate(X_ord.T):
             missing = np.isnan(x_col)
             x_col_noNan = x_col[~missing]
-            ecdf = ECDF(x_col_noNan)#ECDF条件累积分布，根据以观测到的数据推测该特征向量的累积分布函数
+            ecdf = ECDF(x_col_noNan)
             unique = np.unique(x_col_noNan)
             # half the min differenence between two ordinals
-            threshold = np.min(np.abs(unique[1:] - unique[:-1]))/2.0#threshold是序数数据两个最小距离的一半的值
-            Z_ord_lower[:,i] = norm(0,0.25).ppf(ecdf(x_col - threshold))#将数据分布到标准正态分布上来
+            threshold = np.min(np.abs(unique[1:] - unique[:-1]))/2.0
+            Z_ord_lower[:,i] = norm(0,0.25).ppf(ecdf(x_col - threshold))
             Z_ord_upper[:,i] = norm(0,0.25).ppf(ecdf(x_col + threshold))
             # re-add the nan values
             Z_ord_lower[missing,i] = np.nan
@@ -86,4 +85,3 @@ class TransformFunction():
         quantile_indices = np.clip(quantile_indices, a_min=0,a_max=n-1).astype(int)
         sort = np.sort(data)
         return sort[quantile_indices]
-

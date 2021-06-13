@@ -1,5 +1,5 @@
 import numpy as np
-import math
+
 class FTRL_ADP:
     def __init__(self, decay, L1, L2, LP, adaptive , n_inputs ):
         self.ADAPTIVE  = adaptive
@@ -27,7 +27,6 @@ class FTRL_ADP:
         w = self.weight_update(idx)        
         p = self.__sigmoid(np.dot(w, x))
         loss=self.__loss(y,np.dot(w, x))
-        #print("输出loss:"+str(loss))
         # Update decay rate
         if self.ADAPTIVE:
             self.times += 1
@@ -42,8 +41,6 @@ class FTRL_ADP:
                 self.decay = float(self.times)/(self.times+1)
             if decay_choice==4:
                 self.decay = 1. - np.log(self.times)/(2 * self.times)
-            
-
             if self.times > 30:
                 p_i = float(self.fails)/self.times
                 s_i = np.sqrt(p_i*(1-p_i)/self.times)
@@ -54,7 +51,6 @@ class FTRL_ADP:
                 if ps < self.p_min + self.s_min: # Remember the (p,s) with minimum sum
                     self.p_min = p_i
                     self.s_min = s_i
-                    
                 if ps < self.p_min + 2*self.s_min:
                     self.times_warn = 0
                     self.fails_warn = 0
@@ -97,8 +93,7 @@ class FTRL_ADP:
         return self.__sigmoid(np.dot(w, x)) 
     
     def __sigmoid(self, x):
-        #print("ftrl里的sigmoid输入",x)
-        if x >= 0:  # 对sigmoid函数的优化，避免了出现极大的数据溢出
+        if x >= 0:
             return 1.0 / (1 + np.exp(-x))
         else:
             return np.exp(x) / (1 + np.exp(x))
@@ -106,8 +101,4 @@ class FTRL_ADP:
         return 1 / (1 + np.exp(-x))
     
     def __loss(self,y,x):
-        #print("输入x："+str(x))
-        #max(x,0)-x*y+log(1+exp(-abs(x)))
         return max(x,0)-y*x+np.log(1+np.exp(-abs(x)))
-        #return (y*np.log(1+np.exp(-x))+(1-y)*np.log(1+np.exp(x)))*(1/np.log(2.0))
-        

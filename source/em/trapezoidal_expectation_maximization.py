@@ -1,10 +1,8 @@
 from transforms.trapezoidal_transform_function import TrapezoidalTransformFunction
-from scipy.stats import norm, truncnorm
 import numpy as np
 from concurrent.futures import ProcessPoolExecutor
 from em.expectation_maximization import ExpectationMaximization
 from em.embody import _em_step_body_, _em_step_body, _em_step_body_row
-
 
 class TrapezoidalExpectationMaximization(ExpectationMaximization):
     def __init__(self, cont_indices, ord_indices, window_size,window_width, sigma_init=None):
@@ -17,10 +15,9 @@ class TrapezoidalExpectationMaximization(ExpectationMaximization):
         if sigma_init is not None:
             self.sigma = sigma_init
         else:
-            self.sigma = np.identity(p)#构造p*p的单位矩阵
+            self.sigma = np.identity(p)
         # track what iteration the algorithm is on for use in weighting samples
         self.iteration = 1
-
 
     def partial_fit_and_predict(self, X_batch,cont_indices,ord_indices, max_workers=4, num_ord_updates=2, decay_coef=0.5, sigma_update=True, marginal_update = True, sigma_out=False):
         """
@@ -51,12 +48,10 @@ class TrapezoidalExpectationMaximization(ExpectationMaximization):
         else:
             Z_batch_imp = res
         # Rearrange Z_imp so that it's columns correspond to the columns of X
-        # print("Z_batch_imp", Z_batch_imp)
-        # 将Z_imp按照原来的顺序排列好
         Z_imp_rearranged = np.empty(X_batch.shape)
         Z_imp_rearranged[:,self.ord_indices] = Z_batch_imp[:,:np.sum(self.ord_indices)]
         Z_imp_rearranged[:,self.cont_indices] = Z_batch_imp[:,np.sum(self.ord_indices):]
-        # 填补好X_imp的值
+
         X_imp = np.empty(X_batch.shape)
         X_imp[:,self.cont_indices] = self.transform_function.partial_evaluate_cont_observed(Z_imp_rearranged, X_batch)
         X_imp[:,self.ord_indices] = self.transform_function.partial_evaluate_ord_observed(Z_imp_rearranged, X_batch)
@@ -84,11 +79,9 @@ class TrapezoidalExpectationMaximization(ExpectationMaximization):
             sigma (matrix): an updated estimate of the covariance of the copula
             Z_imp (matrix): estimates of latent values in X_batch
         """
-        Z_ord_lower, Z_ord_upper = self.transform_function.partial_evaluate_ord_latent(X_batch) 
-        #print("ordinal lower size: "+str(Z_ord_lower.shape))
-        #print("all missing: "+str(np.all(np.isnan(Z_ord_lower))))
-        Z_ord = self._init_Z_ord(Z_ord_lower, Z_ord_upper, seed)#序数值转成潜在变量
-        Z_cont = self.transform_function.partial_evaluate_cont_latent(X_batch) #连续值转成潜在变量，缺失部分为nan
+        Z_ord_lower, Z_ord_upper = self.transform_function.partial_evaluate_ord_latent(X_batch)
+        Z_ord = self._init_Z_ord(Z_ord_lower, Z_ord_upper, seed)
+        Z_cont = self.transform_function.partial_evaluate_cont_latent(X_batch)
         # Latent variable matrix with columns sorted as ordinal, continuous
         Z = np.concatenate((Z_ord, Z_cont), axis=1)
         batch_size, p = Z.shape
@@ -119,21 +112,17 @@ class TrapezoidalExpectationMaximization(ExpectationMaximization):
                     Z[divide[i]:divide[i+1],:] = Z_divide # not necessary if we only do on EM iteration 
                     C += C_divide
         C = C/batch_size
-        sigma = np.cov(Z_imp, rowvar=False) + C#用Z_imp计算协方差，rowvar=false表示每列为观测值
-        #print("Zimp nan: "+str(np.sum(np.isnan(Z_imp))))
-        #print("incremental sigma: ")
-        #print("sigma nan: "+str(np.sum(np.isnan(sigma))))
+        sigma = np.cov(Z_imp, rowvar=False) + C
         sigma = self._project_to_correlation(sigma)
-        #print("incremental sigma correlation: ")
-        #print(sigma)
-        if update:#update为true一定比例参照原始sigma更新当前sigma
+
+        if update:
             self.sigma = sigma*decay_coef + (1 - decay_coef)*prev_sigma
             prev_sigma = self.sigma
             self.iteration += 1
-        if sigma_out:#是否输出sigma
+        if sigma_out:
             if update:
                 sigma = self.get_sigma()
-            else:#如果update为false，getsigma方式生成新的sigma
+            else:
                 sigma = self.get_sigma(sigma*decay_coef + (1 - decay_coef)*prev_sigma)
             return Z_imp, sigma
         else:
@@ -159,7 +148,6 @@ class TrapezoidalExpectationMaximization(ExpectationMaximization):
 
     def change_point_test(self, x_batch, decay_coef, nsample=100, max_workers=4):
         n,p = x_batch.shape
-        #xsample = np.random.multivariate_normal(np.zeros(p), self.sigma, (nsample,n))
         statistics = np.zeros((nsample,3))
         sigma_old = self.get_sigma()
         _, sigma_new = self.partial_fit_and_predict(x_batch, decay_coef=decay_coef, max_workers=max_workers, marginal_update=True, sigma_update=False, sigma_out=True)
@@ -174,17 +162,14 @@ class TrapezoidalExpectationMaximization(ExpectationMaximization):
             x[:,self.ord_indices] = self.transform_function.partial_evaluate_ord_observed(z)
             loc = np.isnan(x_batch)
             x[loc] = np.nan
-            #xsample[i,:,:] = x
             _, sigma = self.partial_fit_and_predict(x, decay_coef=decay_coef, max_workers=max_workers, marginal_update=False, sigma_update=False, sigma_out=True)
             statistics[i,:] = self.get_matrix_diff(sigma_old, sigma)
-            #print("Sigma change after pseudo examples: "+str(self.get_matrix_diff(self.sigma, sigma_old)))
         # compute test statistics
         pval = np.zeros(3)
         for j in range(3):
             pval[j] = np.sum(s[j]<statistics[:,j])/(nsample+1)
         self._init_sigma(sigma_new)
         return pval, s
-
 
         # compute test statistics
     def get_matrix_diff(self, sigma_old, sigma_new, type = 'F'):
@@ -204,8 +189,3 @@ class TrapezoidalExpectationMaximization(ExpectationMaximization):
                 return max(abs(s-1))
             if type == 'N':
                 return np.sum(abs(s-1))
-
-
-        
-
-    

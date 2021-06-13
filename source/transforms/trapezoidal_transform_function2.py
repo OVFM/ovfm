@@ -11,14 +11,13 @@ class TrapezoidalTransformFunction2():
         To initialize the window, 
         for continuous columns, sample standatd normal with mean and variance determined by the first batch of observation;
         for ordinal columns, sample uniformly with replacement among all integers between min and max seen from data.
-
         """
         self.cont_indices = cont_indices
         self.ord_indices = ord_indices
         self.window_width=window_width
         self.window_size = window_size
         self.window = np.array([[np.nan for x in range(window_width)] for y in range(self.window_size)]).astype(np.float64)
-        self.update_pos = np.zeros(window_width).astype(np.int)#更新位置
+        self.update_pos = np.zeros(window_width).astype(np.int)
         if X is not None:
             self.partial_fit(X)
         
@@ -30,17 +29,11 @@ class TrapezoidalTransformFunction2():
         self.ord_indices = ord_indices
         # Initialization
         if np.isnan(self.window[0, 0] ):
-            # Continuous columns: normal initialization
-            # continuous_element=[]
-            # for row in X_batch:
-            #     for i,val in enumerate(self.cont_indices):
-            #         if val:continuous_element.append(row[i])
-            # mean_cont = np.nanmean(continuous_element)
-            # std_cont = np.nanstd(continuous_element)
-            mean_cont = np.nanmean(X_batch[:, self.cont_indices])#忽略这里面的nan求平均值
+
+            mean_cont = np.nanmean(X_batch[:, self.cont_indices])
             std_cont = np.nanstd(X_batch[:, self.cont_indices])
 
-            if np.isnan(mean_cont):#如果该连续数列全为空则生成标准正态分布，否则则根据所求的平均值和方差生成
+            if np.isnan(mean_cont):
                 self.window[:, self.cont_indices] = np.random.normal(0, 1, size=(self.window_size, np.sum(self.cont_indices)))
             else:
                 self.window[:, self.cont_indices] = np.random.normal(mean_cont, std_cont, size=(self.window_size, np.sum(self.cont_indices)))
@@ -48,16 +41,11 @@ class TrapezoidalTransformFunction2():
             # Ordinal columns: uniform initialization
             for j,loc in enumerate(self.ord_indices):
                 if loc:
-            #         j_index_X_batch = []
-            #         for row in X_batch:
-            #             j_index_X_batch.append(row[j])
-            #         min_ord = np.nanmin(j_index_X_batch)
-            #         max_ord = np.nanmax(j_index_X_batch)
                     min_ord = np.nanmin(X_batch[:, j])
                     max_ord = np.nanmax(X_batch[:,j])
                     if np.isnan(min_ord):
-                        self.window[:,j].fill(0)#如果该序数列表全为空则填充0
-                    else:#随机选取最大最小值中间的元素
+                        self.window[:,j].fill(0)
+                    else:
                         self.window[:, j] = np.random.randint(min_ord, max_ord+1, size=self.window_size)
             for row in X_batch:
                 for col_num in range(len(row)):
@@ -94,20 +82,14 @@ class TrapezoidalTransformFunction2():
                     if self.update_pos[col_num] >= self.window_size:
                         self.update_pos[col_num] = 0
 
-        # update for new data  用每个batch里的新数据更新window，该列数据满了以后从头开始覆盖原始数据
-
-
-
-
-
     def partial_evaluate_cont_latent(self, X_batch):
         """
         Obtain the latent continuous values corresponding to X_batch 
         """
-        X_cont = X_batch[:,self.cont_indices]#batch里的连续值
-        window_cont = self.window[:,self.cont_indices]#window里的连续值
+        X_cont = X_batch[:,self.cont_indices]
+        window_cont = self.window[:,self.cont_indices]
         Z_cont = np.empty(X_cont.shape)
-        Z_cont[:] = np.nan#连续值的隐变量
+        Z_cont[:] = np.nan
         for i in range(np.sum(self.cont_indices)):
             # INPUT THE WINDOW FOR EVERY COLUMN
             missing = np.isnan(X_cont[:,i])
@@ -118,14 +100,14 @@ class TrapezoidalTransformFunction2():
         """
         Obtain the latent ordinal values corresponding to X_batch
         """
-        X_ord = X_batch[:,self.ord_indices]#batch里的序数值
-        window_ord = self.window[:,self.ord_indices]#window里的序数值
+        X_ord = X_batch[:,self.ord_indices]
+        window_ord = self.window[:,self.ord_indices]
         Z_ord_lower = np.empty(X_ord.shape)
-        Z_ord_lower[:] = np.nan#序数值的隐变量的下界
+        Z_ord_lower[:] = np.nan
         Z_ord_upper = np.empty(X_ord.shape)
-        Z_ord_upper[:] = np.nan#序数值隐变量的上界
+        Z_ord_upper[:] = np.nan
         for i in range(np.sum(self.ord_indices)):
-            missing = np.isnan(X_ord[:,i])#该序数值列中缺失数据的位置
+            missing = np.isnan(X_ord[:,i])
             # INPUT THE WINDOW FOR EVERY COLUMN
             Z_ord_lower[~missing,i], Z_ord_upper[~missing,i] = self.get_ord_latent(X_ord[~missing,i], window_ord[:,i])
         return Z_ord_lower, Z_ord_upper
@@ -134,15 +116,15 @@ class TrapezoidalTransformFunction2():
         """
         Transform the latent continous variables in Z_batch into corresponding observations
         """
-        Z_cont = Z_batch[:,self.cont_indices]#连续数列里的Z
+        Z_cont = Z_batch[:,self.cont_indices]
         if X_batch is None:
             X_batch = np.zeros(Z_batch.shape) * np.nan
-        X_cont = X_batch[:,self.cont_indices]#连续数列里的原始X
-        X_cont_imp = np.copy(X_cont)#填补的X
-        window_cont = self.window[:,self.cont_indices]#连续数列里的window
+        X_cont = X_batch[:,self.cont_indices]
+        X_cont_imp = np.copy(X_cont)
+        window_cont = self.window[:,self.cont_indices]
         for i in range(np.sum(self.cont_indices)):
             # if X_batch is not provided, missing will be 1:n
-            missing = np.isnan(X_cont[:,i])#连续数列中某列的缺失位置
+            missing = np.isnan(X_cont[:,i])
             if np.sum(missing)>0:
                 X_cont_imp[missing,i] = self.get_cont_observed(Z_cont[missing,i], window_cont[:,i])
         return X_cont_imp
@@ -151,14 +133,14 @@ class TrapezoidalTransformFunction2():
         """
         Transform the latent ordinal variables in Z_batch into corresponding observations
         """
-        Z_ord = Z_batch[:,self.ord_indices]#Z里的序数数列
+        Z_ord = Z_batch[:,self.ord_indices]
         if X_batch is None:
             X_batch = np.zeros(Z_batch.shape) * np.nan
-        X_ord = X_batch[:, self.ord_indices]#X里的序数数列
+        X_ord = X_batch[:, self.ord_indices]
         X_ord_imp = np.copy(X_ord)
-        window_ord = self.window[:,self.ord_indices]#window里的序数数列
-        for i in range(np.sum(self.ord_indices)):#循环按列填补
-            missing = np.isnan(X_ord[:,i])#该列序数值是否为nan
+        window_ord = self.window[:,self.ord_indices]
+        for i in range(np.sum(self.ord_indices)):
+            missing = np.isnan(X_ord[:,i])
             if np.sum(missing)>0:
                 X_ord_imp[missing,i] = self.get_ord_observed(Z_ord[missing,i], window_ord[:,i])
         return X_ord_imp
@@ -181,8 +163,8 @@ class TrapezoidalTransformFunction2():
         Applies marginal scaling to convert the latent entries in Z corresponding
         to continuous entries to the corresponding imputed oberserved value
         """
-        quantiles = norm.cdf(z_batch_missing)#正态分布z_batch的累积概率分布
-        return np.quantile(window, quantiles)#计算window中 quantiles为参数的分位数
+        quantiles = norm.cdf(z_batch_missing)
+        return np.quantile(window, quantiles)
 
     def get_ord_latent(self, x_batch_obs, window):
         """
@@ -198,14 +180,7 @@ class TrapezoidalTransformFunction2():
         else:
             z_upper_obs = np.inf
             z_lower_obs = -np.inf
-            # If the window at j-th column only has one unique value, 
-            # the final imputation will be the unqiue value regardless of the EM iteration.
-            # In offline setting, we don't allow this happen.
-            # In online setting, when it happens, 
-            # we use -inf to inf to ensure tha EM iteration does not break down due to singularity
-            #print("window contains a single value")
         return z_lower_obs, z_upper_obs
-
 
     def get_ord_observed(self, z_batch_missing, window, DECIMAL_PRECISION = 3):
         """
@@ -215,7 +190,7 @@ class TrapezoidalTransformFunction2():
         n = len(window)
         x = norm.cdf(z_batch_missing)
         # round to avoid numerical errors in ceiling function
-        quantile_indices = np.ceil(np.round_((n + 1) * x - 1, DECIMAL_PRECISION))#求大于np.round_((n + 1) * x - 1, DECIMAL_PRECISION)的最小整数，(n + 1) * x - 1保留小数点后三位
-        quantile_indices = np.clip(quantile_indices, a_min=0,a_max=n-1).astype(int)#将quantile_indices截断在0--n-1之间
-        sort = np.sort(window)#window排序
-        return sort[quantile_indices]  #输出排序后的window相应的以quantile_indices为下标的值
+        quantile_indices = np.ceil(np.round_((n + 1) * x - 1, DECIMAL_PRECISION))
+        quantile_indices = np.clip(quantile_indices, a_min=0,a_max=n-1).astype(int)
+        sort = np.sort(window)
+        return sort[quantile_indices]  

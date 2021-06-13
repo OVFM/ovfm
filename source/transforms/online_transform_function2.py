@@ -2,7 +2,6 @@ import numpy as np
 from scipy.stats import norm
 from statsmodels.distributions.empirical_distribution import ECDF
 
-
 class OnlineTransformFunction2():
     def __init__(self, cont_indices, ord_indices, X=None, window_size=100):
         """
@@ -18,7 +17,7 @@ class OnlineTransformFunction2():
         p = len(cont_indices)
         self.window_size = window_size
         self.window = np.array([[np.nan for x in range(p)] for y in range(self.window_size)]).astype(np.float64)
-        self.update_pos = np.zeros(p).astype(np.int)#更新位置
+        self.update_pos = np.zeros(p).astype(np.int)
         if X is not None:
             self.partial_fit(X)
         
@@ -29,9 +28,9 @@ class OnlineTransformFunction2():
         # Initialization
         if np.isnan(self.window[0, 0] ):
             # Continuous columns: normal initialization
-            mean_cont = np.nanmean(X_batch[:, self.cont_indices])#忽略这里面的nan求平均值
+            mean_cont = np.nanmean(X_batch[:, self.cont_indices])
             std_cont = np.nanstd(X_batch[:, self.cont_indices])
-            if np.isnan(mean_cont):#如果该连续数列全为空则生成标准正态分布，否则则根据所求的平均值和方差生成
+            if np.isnan(mean_cont):
                 self.window[:, self.cont_indices] = np.random.normal(0, 1, size=(self.window_size, np.sum(self.cont_indices)))
             else:
                 self.window[:, self.cont_indices] = np.random.normal(mean_cont, std_cont, size=(self.window_size, np.sum(self.cont_indices)))
@@ -41,10 +40,9 @@ class OnlineTransformFunction2():
                     min_ord = np.nanmin(X_batch[:, j])
                     max_ord = np.nanmax(X_batch[:,j]) 
                     if np.isnan(min_ord):
-                        self.window[:,j].fill(0)#如果该序数列表全为空则填充0
-                    else:#随机选取最大最小值中间的元素
+                        self.window[:,j].fill(0)
+                    else:
                         self.window[:, j] = np.random.randint(min_ord, max_ord+1, size=self.window_size)
-            # update for new data更新window，第
             for row in X_batch:
                 for col_num in range(len(row)):
                     data = row[col_num]
@@ -63,7 +61,6 @@ class OnlineTransformFunction2():
                     self.update_pos[col_num] += 1
                     if self.update_pos[col_num] >= self.window_size:
                         self.update_pos[col_num] = 0
-
 
     def partial_evaluate_cont_latent(self, X_batch):
         """
@@ -163,14 +160,7 @@ class OnlineTransformFunction2():
         else:
             z_upper_obs = np.inf
             z_lower_obs = -np.inf
-            # If the window at j-th column only has one unique value, 
-            # the final imputation will be the unqiue value regardless of the EM iteration.
-            # In offline setting, we don't allow this happen.
-            # In online setting, when it happens, 
-            # we use -inf to inf to ensure tha EM iteration does not break down due to singularity
-            #print("window contains a single value")
         return z_lower_obs, z_upper_obs
-
 
     def get_ord_observed(self, z_batch_missing, window, DECIMAL_PRECISION = 3):
         """
