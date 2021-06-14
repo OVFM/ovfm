@@ -21,7 +21,7 @@ The code was tested on:
 To install requirement:
 ```
 # install requirement
-pip install -r requirements.txt
+pip install -r requirements
 ```
 
 ## Run
